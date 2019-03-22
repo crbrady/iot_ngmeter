@@ -29,6 +29,7 @@ class DialParams:
         return repr((self.x, self.y, self.r))
 
 def calibrate_gauge(file_name):
+    global DEBUG
     img = cv2.imread('%s' %(file_name))
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     output_img = cv2.cvtColor(gray,cv2.COLOR_GRAY2RGB)
@@ -112,7 +113,7 @@ def calibrate_gauge(file_name):
         AllDials[i] = getValueForDial(AllDials[i]);
         totalValue += AllDials[i].value
 
-        if DEBUG == True:
+        if (DEBUG == True):
             cv2.line(output_img, AllDials[i].line[0], AllDials[i].line[1], (0, 255, 0), 2)
             cv2.circle(output_img,(AllDials[i].x ,AllDials[i].y),AllDials[i].r,(0,255,0),2)
             cv2.circle(output_img,(AllDials[i].x + AllDials[i].xShift ,AllDials[i].y + AllDials[i].yShift),2,(0,0,255),3)
@@ -120,13 +121,13 @@ def calibrate_gauge(file_name):
             cv2.putText(output_img, '%s cubic feet' %(AllDials[i].value), (AllDials[i].x - int(AllDials[i].r *.5) ,AllDials[i].y - AllDials[i].r - 30), cv2.FONT_HERSHEY_SIMPLEX, .4,(0,0,255),1,cv2.LINE_AA)
 
     client.publish("ngmeter/cubicfeet", totalValue, qos=0, retain=False)
-
-    if DEBUG == True:
+    
+    if (DEBUG == True):
         cv2.putText(output_img, '%s cubic feet' %(totalValue), (int(width *.55) , int(height * .25)), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2,cv2.LINE_AA)
         dateString = time.strftime("%m/%d/%Y %l:%M:%S %p")
         cv2.putText(output_img, '%s' %(dateString), (int(width *.55) , int(height * .1)), cv2.FONT_HERSHEY_SIMPLEX, .5,(0,0,255),1,cv2.LINE_AA)
         debug_img = cv2.imencode('.jpg', output_img)[1].tostring()
-        client.publish("ngmeter/debug_img", debug_img, qos=2, retain=False)
+        client.publish("ngmeter/debug_img", debug_img, qos=2)
 
     #cv2.imshow('detected circles',output_img)
     #cv2.waitKey(0)
@@ -220,6 +221,7 @@ def getLineForDial(img, dial):
     return dial;
 
 def main():
+    global DEBUG
     global timeSinceLastDebugRequest
     adjustedTimeSince = timeSinceLastDebugRequest + 10
     if(adjustedTimeSince > time.time()):
