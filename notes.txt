@@ -1,0 +1,18 @@
+sudo apt-get -y purge wolfram-engine
+sudo apt-get -y purge libreoffice*
+sudo apt-get -y clean
+sudo apt-get -y autoremove
+
+update Node.js
+sudo apt update
+sudo apt install nodejs
+pip install paho-mqtt
+
+pip3 install opencv-python
+sudo apt-get install libcblas-dev libhdf5-dev libhdf5-serial-dev libatlas-base-dev libjasper-dev libqtgui4 libqt4-test
+sudo apt-get install libhdf5-dev
+sudo apt-get install libhdf5-serial-dev
+sudo apt-get install libatlas-base-dev
+sudo apt-get install libjasper-dev
+sudo apt-get install libqtgui4
+sudo apt-get install libqt4-test
