@@ -5,11 +5,15 @@ import cv2
 import numpy as np
 import paho.mqtt.client as mqtt
 import time
-import threading
+import datetime
+import pytz
 
 
 print ("Starting with OpenCV version %s..." %(cv2.__version__ ))
-DEBUG = True
+DEBUG = False
+dateFormat = '%Y-%m-%d %H:%M:%S'
+
+timeSinceLastDebugRequest = 0
 
 def sortByX(e):
   return e.x
@@ -120,6 +124,8 @@ def calibrate_gauge(file_name):
 
     if DEBUG == True:
         cv2.putText(output_img, '%s cubic feet' %(totalValue), (int(width *.55) , int(height * .25)), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2,cv2.LINE_AA)
+        dateString = time.strftime("%m/%d/%Y %l:%M:%S %p")
+        cv2.putText(output_img, '%s' %(dateString), (int(width *.55) , int(height * .1)), cv2.FONT_HERSHEY_SIMPLEX, .5,(0,0,255),1,cv2.LINE_AA)
         debug_img = cv2.imencode('.jpg', output_img)[1].tostring()
         client.publish("ngmeter/debug_img", debug_img, qos=0, retain=False)
 
@@ -215,22 +221,38 @@ def getLineForDial(img, dial):
     return dial;
 
 def main():
+    global timeSinceLastDebugRequest
+    adjustedTimeSince = timeSinceLastDebugRequest + 10
+    if(adjustedTimeSince > time.time()):
+        DEBUG = True
+        print("Running in debug image mode...")
+    else:
+        DEBUG = False
+
     start = time.time()
     file_name='cam7.jpg'
     # name the calibration image of your gauge 'gauge-#.jpg', for example 'gauge-5.jpg'.  It's written this way so you can easily try multiple images
     units = calibrate_gauge("test.jpg")
     #feed an image (or frame) to get the current value, based on the calibration, by default uses same image as calibration
     end = time.time()
-    print ("Current reading: %s  (took %s seconds)" %(units, (end - start)))
-    threading.Timer(10.0, main).start()
+    print ("Current reading: %s  (took %.2f seconds)" %(units, (end - start)))
+    time.sleep(2)
+    main()
 
 def on_connect(client, userdata, flags, rc):
+    print("Connected to MQTT broker with code %s" %(rc))
+    client.subscribe("ngmeter/debug_img/request", qos=0)
 
-    print("Connected with result code "+str(rc))
+
 
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
+    if(msg.topic == "ngmeter/debug_img/request"):
+        print("debug requested")
+        global timeSinceLastDebugRequest
+        timeSinceLastDebugRequest = time.time()
+
     print(msg.topic+" "+str(msg.payload))
 
 client = mqtt.Client()
@@ -238,12 +260,12 @@ client.on_connect = on_connect
 client.on_message = on_message
 
 client.connect("192.168.0.2", 1883, 60)
-time.sleep(3)
+client.loop_start()
 
 
 main()
+
 # Blocking call that processes network traffic, dispatches callbacks and
 # handles reconnecting.
 # Other loop*() functions are available that give a threaded interface and a
 # manual interface.
-client.loop_forever()
