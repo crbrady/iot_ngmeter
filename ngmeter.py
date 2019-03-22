@@ -12,6 +12,8 @@ import threading
 
 DEBUG = True
 
+print 'Starting with OpenCV version %s...' %(cv2.__version__ )
+
 def sortByX(e):
   return e.x
 
