@@ -6,7 +6,6 @@ import numpy as np
 import paho.mqtt.client as mqtt
 import time
 import datetime
-import pytz
 
 
 print ("Starting with OpenCV version %s..." %(cv2.__version__ ))
