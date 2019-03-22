@@ -215,12 +215,14 @@ def getLineForDial(img, dial):
     return dial;
 
 def main():
+    start = time.time()
     file_name='cam7.jpg'
     # name the calibration image of your gauge 'gauge-#.jpg', for example 'gauge-5.jpg'.  It's written this way so you can easily try multiple images
     units = calibrate_gauge("test.jpg")
     #feed an image (or frame) to get the current value, based on the calibration, by default uses same image as calibration
-    print ("Current reading: %s" %(units))
-    threading.Timer(5.0, main).start()
+    end = time.time()
+    print ("Current reading: %s  (took %s seconds)" %(units, (end - start)))
+    threading.Timer(10.0, main).start()
 
 def on_connect(client, userdata, flags, rc):
 
