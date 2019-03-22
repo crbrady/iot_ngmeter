@@ -2,17 +2,14 @@
 # https://software.intel.com/en-us/articles/analog-gauge-reader-using-opencv
 
 import cv2
-import cv2.cv as cv
 import numpy as np
 import paho.mqtt.client as mqtt
 import time
 import threading
 
 
-
-DEBUG = True
-
 print 'Starting with OpenCV version %s...' %(cv2.__version__ )
+DEBUG = True
 
 def sortByX(e):
   return e.x
@@ -41,7 +38,7 @@ def calibrate_gauge(file_name):
     #print "Image h=%s w=%s  --  circle detect min=%s max=%s maxDist= %s" %(height, width, circleMin, circleMax, circleMaxDist)
     #print "h=%s w=%s" %(height, width)
 
-    circles = cv2.HoughCircles(gray, cv.CV_HOUGH_GRADIENT, 1, circleMaxDist, param1=100, param2=70, minRadius=circleMin, maxRadius=circleMax)
+    circles = cv2.HoughCircles(gray,cv2.HOUGH_GRADIENT,1,circleMaxDist,param1=100,param2=70,minRadius=circleMin,maxRadius=circleMax)
     circles = np.uint16(np.around(circles))
 
     smallestCircle = 1000000;
