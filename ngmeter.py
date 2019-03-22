@@ -1,6 +1,15 @@
 # Written by Ryan Brady, Loosly based on an intel opencv tutorial
 # https://software.intel.com/en-us/articles/analog-gauge-reader-using-opencv
 
+from picamera.array import PiRGBArray
+from picamera import PiCamera
+
+camera = PiCamera()
+camera.resolution = (820, 500)
+Camera.rotation = 90
+rawCapture = PiRGBArray(camera, size=(820, 500))
+time.sleep(0.1)
+
 import cv2
 import numpy as np
 import paho.mqtt.client as mqtt
@@ -30,7 +39,12 @@ class DialParams:
 
 def calibrate_gauge(file_name):
     global DEBUG
-    img = cv2.imread('%s' %(file_name))
+
+    #img = cv2.imread('%s' %(file_name))
+    img = frame.array
+    rawCapture.truncate(0)
+
+
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     output_img = cv2.cvtColor(gray,cv2.COLOR_GRAY2RGB)
 
@@ -121,7 +135,7 @@ def calibrate_gauge(file_name):
             cv2.putText(output_img, '%s cubic feet' %(AllDials[i].value), (AllDials[i].x - int(AllDials[i].r *.5) ,AllDials[i].y - AllDials[i].r - 30), cv2.FONT_HERSHEY_SIMPLEX, .4,(0,0,255),1,cv2.LINE_AA)
 
     client.publish("ngmeter/cubicfeet", totalValue, qos=0, retain=False)
-    
+
     if (DEBUG == True):
         cv2.putText(output_img, '%s cubic feet' %(totalValue), (int(width *.55) , int(height * .25)), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2,cv2.LINE_AA)
         dateString = time.strftime("%m/%d/%Y %l:%M:%S %p")
