@@ -126,7 +126,7 @@ def calibrate_gauge(file_name):
         dateString = time.strftime("%m/%d/%Y %l:%M:%S %p")
         cv2.putText(output_img, '%s' %(dateString), (int(width *.55) , int(height * .1)), cv2.FONT_HERSHEY_SIMPLEX, .5,(0,0,255),1,cv2.LINE_AA)
         debug_img = cv2.imencode('.jpg', output_img)[1].tostring()
-        client.publish("ngmeter/debug_img", debug_img, qos=0, retain=False)
+        client.publish("ngmeter/debug_img", debug_img, qos=2, retain=False)
 
     #cv2.imshow('detected circles',output_img)
     #cv2.waitKey(0)
@@ -248,11 +248,11 @@ def on_connect(client, userdata, flags, rc):
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
     if(msg.topic == "ngmeter/debug_img/request"):
-        print("debug requested")
+        #print("debug requested")
         global timeSinceLastDebugRequest
         timeSinceLastDebugRequest = time.time()
 
-    print(msg.topic+" "+str(msg.payload))
+    #print(msg.topic+" "+str(msg.payload))
 
 client = mqtt.Client()
 client.on_connect = on_connect

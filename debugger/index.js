@@ -26,7 +26,7 @@ client.on('connect', function () {
     console.log("mqtt connected");
     client.subscribe('ngmeter/status');
     client.subscribe('ngmeter/cubic_feet');
-    client.subscribe('ngmeter/debug_img');
+    client.subscribe('ngmeter/debug_img',{qos:2});
 });
 
 
