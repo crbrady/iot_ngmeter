@@ -1,0 +1,19 @@
+{
+  "name": "iot_ngmeter_viewer",
+  "version": "1.0.0",
+  "description": "Simple simple viewer to remotely observe and debug image analysis ",
+  "main": "index.js",
+  "scripts": {
+    "backend": "node index.js",
+    "frontend": "cd react && npm start",
+    "viewer": "run-p backend frontend"
+  },
+  "author": "Ryan Brady",
+  "license": "ISC",
+  "dependencies": {
+    "mqtt": "^2.18.8",
+    "npm-run-all": "^4.1.5",
+    "properties-reader": "0.0.16",
+    "socket.io": "^2.2.0"
+  }
+}

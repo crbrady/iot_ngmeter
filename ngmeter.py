@@ -1,7 +1,13 @@
+# Written by Ryan Brady, Loosly based on an intel opencv tutorial
+# https://software.intel.com/en-us/articles/analog-gauge-reader-using-opencv
+
 import cv2
 import numpy as np
-#import paho.mqtt.client as mqtt
+import paho.mqtt.client as mqtt
 import time
+import threading
+
+DEBUG = True
 
 def sortByX(e):
   return e.x
@@ -22,13 +28,13 @@ def calibrate_gauge(file_name):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     output_img = cv2.cvtColor(gray,cv2.COLOR_GRAY2RGB)
 
-    print "reading file "
+    #print "reading file "
     height, width = img.shape[:2]
     circleMin = height / 12
     circleMax = height / 2
     circleMaxDist = height / 5
-    print "Image h=%s w=%s  --  circle detect min=%s max=%s maxDist= %s" %(height, width, circleMin, circleMax, circleMaxDist)
-    print "h=%s w=%s" %(height, width)
+    #print "Image h=%s w=%s  --  circle detect min=%s max=%s maxDist= %s" %(height, width, circleMin, circleMax, circleMaxDist)
+    #print "h=%s w=%s" %(height, width)
 
     circles = cv2.HoughCircles(gray,cv2.HOUGH_GRADIENT,1,circleMaxDist,param1=100,param2=70,minRadius=circleMin,maxRadius=circleMax)
     circles = np.uint16(np.around(circles))
@@ -100,19 +106,26 @@ def calibrate_gauge(file_name):
         AllDials[i] = getAngleForDial(AllDials[i]);
         AllDials[i] = getValueForDial(AllDials[i]);
         totalValue += AllDials[i].value
-        cv2.line(output_img, AllDials[i].line[0], AllDials[i].line[1], (0, 255, 0), 2)
-        cv2.circle(output_img,(AllDials[i].x ,AllDials[i].y),AllDials[i].r,(0,255,0),2)
-        cv2.circle(output_img,(AllDials[i].x + AllDials[i].xShift ,AllDials[i].y + AllDials[i].yShift),2,(0,0,255),3)
-        cv2.putText(output_img, '%s degrees' %(AllDials[i].angle), (AllDials[i].x - int(AllDials[i].r *.5) ,AllDials[i].y - AllDials[i].r - 10), cv2.FONT_HERSHEY_SIMPLEX, .4,(0,0,255),1,cv2.LINE_AA)
-        cv2.putText(output_img, '%s cubic feet' %(AllDials[i].value), (AllDials[i].x - int(AllDials[i].r *.5) ,AllDials[i].y - AllDials[i].r - 30), cv2.FONT_HERSHEY_SIMPLEX, .4,(0,0,255),1,cv2.LINE_AA)
 
-    cv2.putText(output_img, '%s cubic feet' %(totalValue), (int(width *.55) , int(height * .25)), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2,cv2.LINE_AA)
+        if DEBUG == True:
+            cv2.line(output_img, AllDials[i].line[0], AllDials[i].line[1], (0, 255, 0), 2)
+            cv2.circle(output_img,(AllDials[i].x ,AllDials[i].y),AllDials[i].r,(0,255,0),2)
+            cv2.circle(output_img,(AllDials[i].x + AllDials[i].xShift ,AllDials[i].y + AllDials[i].yShift),2,(0,0,255),3)
+            cv2.putText(output_img, '%s degrees' %(AllDials[i].angle), (AllDials[i].x - int(AllDials[i].r *.5) ,AllDials[i].y - AllDials[i].r - 10), cv2.FONT_HERSHEY_SIMPLEX, .4,(0,0,255),1,cv2.LINE_AA)
+            cv2.putText(output_img, '%s cubic feet' %(AllDials[i].value), (AllDials[i].x - int(AllDials[i].r *.5) ,AllDials[i].y - AllDials[i].r - 30), cv2.FONT_HERSHEY_SIMPLEX, .4,(0,0,255),1,cv2.LINE_AA)
 
-    cv2.imshow('detected circles',output_img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    client.publish("ngmeter/cubicfeet", totalValue, qos=0, retain=False)
 
-    return "ok"
+    if DEBUG == True:
+        cv2.putText(output_img, '%s cubic feet' %(totalValue), (int(width *.55) , int(height * .25)), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2,cv2.LINE_AA)
+        debug_img = cv2.imencode('.jpg', output_img)[1].tostring()
+        client.publish("ngmeter/debug_img", debug_img, qos=0, retain=False)
+
+    #cv2.imshow('detected circles',output_img)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
+
+    return totalValue
 
 def getValueForDial(dial):
     steps = dial.angle /36
@@ -152,12 +165,12 @@ def getLineForDial(img, dial):
     maxValue = 255
     th, dst2 = cv2.threshold(gray2, thresh, maxValue, cv2.THRESH_BINARY_INV);
 
-    print "%s" %(dial.unitsPerRev)
+    #print "%s" %(dial.unitsPerRev)
     minLineLength = 10
     maxLineGap = 0
     lines = cv2.HoughLinesP(image=dst2, rho=3, theta=np.pi / 180, threshold=100,minLineLength=minLineLength, maxLineGap=0)  # rho is set to 3 to detect more lines, easier to get more then filter them out later
 
-    print "Found %s lines" %(len(lines))
+    #print "Found %s lines" %(len(lines))
 
     final_line_list = []
 
@@ -195,7 +208,7 @@ def getLineForDial(img, dial):
                     finalX = fX
                     finalY = fY
 
-    print "Lines trimed to %s lines" %(len(final_line_list))
+    #print "Lines trimed to %s lines" %(len(final_line_list))
     dial.line = [(x + dial.xShift, y + dial.yShift), (finalX, finalY)];
     return dial;
 
@@ -205,5 +218,28 @@ def main():
     units = calibrate_gauge("test.jpg")
     #feed an image (or frame) to get the current value, based on the calibration, by default uses same image as calibration
     print "Current reading: %s" %(units)
+    threading.Timer(5.0, main).start()
+
+def on_connect(client, userdata, flags, rc):
+
+    print("Connected with result code "+str(rc))
+
+
+# The callback for when a PUBLISH message is received from the server.
+def on_message(client, userdata, msg):
+    print(msg.topic+" "+str(msg.payload))
+
+client = mqtt.Client()
+client.on_connect = on_connect
+client.on_message = on_message
+
+client.connect("192.168.0.2", 1883, 60)
+time.sleep(3)
+
 
 main()
+# Blocking call that processes network traffic, dispatches callbacks and
+# handles reconnecting.
+# Other loop*() functions are available that give a threaded interface and a
+# manual interface.
+client.loop_forever()
