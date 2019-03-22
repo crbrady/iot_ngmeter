@@ -8,7 +8,7 @@ import time
 import threading
 
 
-print 'Starting with OpenCV version %s...' %(cv2.__version__ )
+print ("Starting with OpenCV version %s..." %(cv2.__version__ ))
 DEBUG = True
 
 def sortByX(e):
@@ -219,7 +219,7 @@ def main():
     # name the calibration image of your gauge 'gauge-#.jpg', for example 'gauge-5.jpg'.  It's written this way so you can easily try multiple images
     units = calibrate_gauge("test.jpg")
     #feed an image (or frame) to get the current value, based on the calibration, by default uses same image as calibration
-    print "Current reading: %s" %(units)
+    print ("Current reading: %s" %(units))
     threading.Timer(5.0, main).start()
 
 def on_connect(client, userdata, flags, rc):
