@@ -6,7 +6,7 @@ from picamera import PiCamera
 
 camera = PiCamera()
 camera.resolution = (820, 500)
-Camera.rotation = 90
+camera.rotation = 270
 rawCapture = PiRGBArray(camera, size=(820, 500))
 time.sleep(0.1)
 
