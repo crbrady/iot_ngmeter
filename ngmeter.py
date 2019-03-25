@@ -1,25 +1,27 @@
 # Written by Ryan Brady, Loosly based on an intel opencv tutorial
 # https://software.intel.com/en-us/articles/analog-gauge-reader-using-opencv
 
-from picamera.array import PiRGBArray
-from picamera import PiCamera
+
+import picamera
+import picamera.array
 import cv2
 import numpy as np
 import paho.mqtt.client as mqtt
 import time
 import datetime
+import io
 
-camera = PiCamera()
-camera.resolution = (820, 500)
-camera.rotation = 270
-rawCapture = PiRGBArray(camera, size=(820, 500))
-time.sleep(0.1)
+
 
 
 
 
 print ("Starting with OpenCV version %s..." %(cv2.__version__ ))
-DEBUG = False
+DEBUG = True
+LOCAL_DEBUG = False
+CONSOLE_DEBUG = True
+DEBUG_WITH_FILE_IMAGE = False
+
 dateFormat = '%Y-%m-%d %H:%M:%S'
 
 timeSinceLastDebugRequest = 0
@@ -35,46 +37,68 @@ class DialParams:
         self.x = x
         self.y = y
         self.r = r
+        self.value = None
+        self.line = None
+        self.angle = None
     def __repr__(self):
         return repr((self.x, self.y, self.r))
 
 def calibrate_gauge(file_name):
     global DEBUG
-
-    #img = cv2.imread('%s' %(file_name))
-    camera.capture(img, format="bgr", use_video_port=False):
-    rawCapture.truncate(0)
-
-
+    global LOCAL_DEBUG
+    global CONSOLE_DEBUG
+    global DEBUG_WITH_FILE_IMAGE
+    
+    if(DEBUG_WITH_FILE_IMAGE == True):
+        img = cv2.imread('%s' %(file_name))
+    else:
+        stream = io.BytesIO()
+        with picamera.PiCamera() as camera:
+            camera.resolution = (832, 512)
+            #camera.rotation = 90
+            #camera.start_preview()
+            #time.sleep(2)
+            with picamera.array.PiRGBArray(camera) as stream:
+                camera.capture(stream, format="bgr")
+                img = stream.array
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     output_img = cv2.cvtColor(gray,cv2.COLOR_GRAY2RGB)
+
+    if(LOCAL_DEBUG == True):
+        cv2.imshow('detected circles',output_img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
     #print "reading file "
     height, width = img.shape[:2]
     circleMin = height / 12
     circleMax = height / 2
     circleMaxDist = height / 5
-    #print "Image h=%s w=%s  --  circle detect min=%s max=%s maxDist= %s" %(height, width, circleMin, circleMax, circleMaxDist)
-    #print "h=%s w=%s" %(height, width)
+    if (CONSOLE_DEBUG == True):
+        print ("Image h=%s w=%s  --  circle detect min=%s max=%s maxDist= %s" %(height, width, circleMin, circleMax, circleMaxDist))
 
     circles = cv2.HoughCircles(gray,cv2.HOUGH_GRADIENT,1,int(circleMaxDist),param1=100,param2=70,minRadius=int(circleMin),maxRadius=int(circleMax))
     circles = np.uint16(np.around(circles))
 
-    smallestCircle = 1000000;
-    largestCircle = 0;
+
+    circleYMax = 0;
+    circleYMin = 100000;
+    
     for i in circles[0,:]:
-        if i[2] < smallestCircle:
-            smallestCircle = i[2]
-        if i[2] > largestCircle:
-            largestCircle = i[2]
-    circleSizeMidPoint = (smallestCircle + largestCircle) /2
+        if(i[1] > circleYMax):
+            circleYMax = i[1]
+        if(i[1] < circleYMin):
+            circleYMin = i[1]
+
+    circleYMidPoint = (circleYMin + circleYMax) /2
 
     topDials = [];
     bottomDials = [];
+    
     for i in circles[0,:]:
         newDial = DialParams(i[0],i[1],i[2]);
-        if newDial.r < circleSizeMidPoint:
+        if newDial.y < circleYMidPoint:
             newDial.yShift = 3
             topDials.append(newDial)
         else:
@@ -83,50 +107,62 @@ def calibrate_gauge(file_name):
 
     bottomDials.sort(key=sortByX)
     topDials.sort(key=sortByX)
-
+    
+    if (CONSOLE_DEBUG == True):
+        print("found %s top circles and %s bottom circles" %(len(topDials), len(bottomDials)))
     AllDials=[];
 
     millionDial = bottomDials[0]
     millionDial.unitsPerRev = 1000000
     millionDial.xShift = 0
     millionDial.dialClockwise = False
+    millionDial.name = "Million"
     AllDials.append(millionDial)
 
     hundredThouDial = bottomDials[1]
     hundredThouDial.unitsPerRev = 100000
     hundredThouDial.xShift = 0
     hundredThouDial.dialClockwise = True
+    hundredThouDial.name = "HundredThou"
     AllDials.append(hundredThouDial)
 
     tenThouDial = bottomDials[2]
     tenThouDial.unitsPerRev = 10000
     tenThouDial.xShift = 4
     tenThouDial.dialClockwise = False
+    tenThouDial.name = "TenThou"
     AllDials.append(tenThouDial)
 
     thouDial = bottomDials[3]
     thouDial.unitsPerRev = 1000
     thouDial.xShift = 7
     thouDial.dialClockwise = True
+    thouDial.name = "Thou"
     AllDials.append(thouDial)
 
     halfDial = topDials[0]
     halfDial.unitsPerRev = 10
     halfDial.xShift = 0
     halfDial.dialClockwise = False
+    halfDial.name = "Half"
     AllDials.append(halfDial)
 
     twoDial = topDials[1]
     twoDial.unitsPerRev = 40
     twoDial.xShift = 0
     twoDial.dialClockwise = False
+    twoDial.name = "Two"
     AllDials.append(twoDial)
 
     totalValue = 0
+    lines = getAllLines(img)
     for i in range(0, len(AllDials)):
-        AllDials[i] = getLineForDial(img, AllDials[i]);
+        AllDials[i] = getLineForDial(lines, AllDials[i]);
         AllDials[i] = getAngleForDial(AllDials[i]);
         AllDials[i] = getValueForDial(AllDials[i]);
+        if(AllDials[i].value is None):
+            print('Read Dials Failed on %s' %(AllDials[i].name))
+            return 'Error'
         totalValue += AllDials[i].value
 
         if (DEBUG == True):
@@ -145,19 +181,27 @@ def calibrate_gauge(file_name):
         debug_img = cv2.imencode('.jpg', output_img)[1].tostring()
         client.publish("ngmeter/debug_img", debug_img, qos=2)
 
-    #cv2.imshow('detected circles',output_img)
-    #cv2.waitKey(0)
-    #cv2.destroyAllWindows()
+    if(LOCAL_DEBUG == True):
+        cv2.imshow('detected circles',output_img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
     return totalValue
 
 def getValueForDial(dial):
+    if(dial.angle is None):
+        return dial
     steps = dial.angle /36
     dial.steps = int(steps)
     dial.value = int(steps) * dial.unitsPerRev /10
     return dial
 
 def getAngleForDial(dial):
+    global CONSOLE_DEBUG
+    
+    if(dial.line is None):
+        return dial
+    
     final_angle =  0
     x_angle = dial.line[1][0] - dial.line[0][0]
     y_angle = dial.line[1][1] - dial.line[0][1]
@@ -179,22 +223,32 @@ def getAngleForDial(dial):
     dial.angle = int(final_angle)
     return dial
 
-def getLineForDial(img, dial):
-    x = dial.x
-    y = dial.y
-    r = dial.r
 
+def getAllLines(img):
+    global CONSOLE_DEBUG
+    
     gray2 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    thresh = 80
+    thresh = 70
     maxValue = 255
     th, dst2 = cv2.threshold(gray2, thresh, maxValue, cv2.THRESH_BINARY_INV);
 
     #print "%s" %(dial.unitsPerRev)
-    minLineLength = 10
+    minLineLength = 6
     maxLineGap = 0
     lines = cv2.HoughLinesP(image=dst2, rho=3, theta=np.pi / 180, threshold=100,minLineLength=minLineLength, maxLineGap=0)  # rho is set to 3 to detect more lines, easier to get more then filter them out later
 
-    #print "Found %s lines" %(len(lines))
+    if(CONSOLE_DEBUG == True):
+        print ("Found %s lines" %(len(lines)))
+    return lines
+
+
+def getLineForDial(lines, dial):
+    global CONSOLE_DEBUG
+
+    x = dial.x
+    y = dial.y
+    r = dial.r
+
 
     final_line_list = []
 
@@ -232,13 +286,17 @@ def getLineForDial(img, dial):
                     finalX = fX
                     finalY = fY
 
-    #print "Lines trimed to %s lines" %(len(final_line_list))
-    dial.line = [(x + dial.xShift, y + dial.yShift), (finalX, finalY)];
-    return dial;
+    print ("Lines trimed to %s lines, for %s" %(len(final_line_list), dial.name ))
+    if(len(final_line_list) == 0):
+        return dial
+    else:
+        dial.line = [(x + dial.xShift, y + dial.yShift), (finalX, finalY)];
+        return dial
 
 def main():
     global DEBUG
     global timeSinceLastDebugRequest
+    
     adjustedTimeSince = timeSinceLastDebugRequest + 10
     if(adjustedTimeSince > time.time()):
         DEBUG = True
@@ -247,7 +305,7 @@ def main():
         DEBUG = False
 
     start = time.time()
-    file_name='cam7.jpg'
+
     # name the calibration image of your gauge 'gauge-#.jpg', for example 'gauge-5.jpg'.  It's written this way so you can easily try multiple images
     units = calibrate_gauge("test.jpg")
     #feed an image (or frame) to get the current value, based on the calibration, by default uses same image as calibration
