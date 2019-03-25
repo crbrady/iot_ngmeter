@@ -3,6 +3,11 @@
 
 from picamera.array import PiRGBArray
 from picamera import PiCamera
+import cv2
+import numpy as np
+import paho.mqtt.client as mqtt
+import time
+import datetime
 
 camera = PiCamera()
 camera.resolution = (820, 500)
@@ -10,11 +15,7 @@ camera.rotation = 270
 rawCapture = PiRGBArray(camera, size=(820, 500))
 time.sleep(0.1)
 
-import cv2
-import numpy as np
-import paho.mqtt.client as mqtt
-import time
-import datetime
+
 
 
 print ("Starting with OpenCV version %s..." %(cv2.__version__ ))
