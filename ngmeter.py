@@ -42,10 +42,9 @@ def calibrate_gauge(file_name):
     global DEBUG
 
     #img = cv2.imread('%s' %(file_name))
-    for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
-        img = frame.array
-        rawCapture.truncate(0)
-        
+    camera.capture(img, format="bgr", use_video_port=False):
+    rawCapture.truncate(0)
+
 
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
