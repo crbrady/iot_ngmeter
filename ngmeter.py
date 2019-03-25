@@ -43,6 +43,7 @@ class DialParams:
     def __repr__(self):
         return repr((self.x, self.y, self.r))
 
+
 def calibrate_gauge(file_name):
     global DEBUG
     global LOCAL_DEBUG
