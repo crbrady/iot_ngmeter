@@ -1,36 +1,26 @@
 # Written by Ryan Brady, Loosly based on an intel opencv tutorial
 # https://software.intel.com/en-us/articles/analog-gauge-reader-using-opencv
 
-
-import picamera
-import picamera.array
 import cv2
 import numpy as np
 import paho.mqtt.client as mqtt
 import time
 import datetime
 import io
+import yaml
 
-
-
-
-
+with open("config.yaml", 'r') as ymlfile:
+    config = yaml.load(ymlfile)
 
 print ("Starting with OpenCV version %s..." %(cv2.__version__ ))
-DEBUG = True
-LOCAL_DEBUG = False
-CONSOLE_DEBUG = True
-DEBUG_WITH_FILE_IMAGE = False
 
+mqttDebug = True
+timeSinceLastDebugRequest = 0
 dateFormat = '%Y-%m-%d %H:%M:%S'
 
-timeSinceLastDebugRequest = 0
-
-def sortByX(e):
-  return e.x
-
-def dist_2_pts(x1, y1, x2, y2):
-    return np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+if(config['debug']['useFileImg'] == False):
+    import picamera
+    import picamera.array
 
 class DialParams:
     def __init__(self, x, y, r):
@@ -43,20 +33,30 @@ class DialParams:
     def __repr__(self):
         return repr((self.x, self.y, self.r))
 
+def sortByX(e):
+  return e.x
 
-def calibrate_gauge(file_name):
-    global DEBUG
-    global LOCAL_DEBUG
-    global CONSOLE_DEBUG
-    global DEBUG_WITH_FILE_IMAGE
-    
-    if(DEBUG_WITH_FILE_IMAGE == True):
-        img = cv2.imread('%s' %(file_name))
+def dist_2_pts(x1, y1, x2, y2):
+    return np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
+def configure_dial(dials, rowKey, index):
+    newDial = dials[index]
+    newDial.unitsPerRev = config[rowKey][index]['unitsPerRev']
+    newDial.xShift = config[rowKey][index]['xShift']
+    newDial.dialClockwise = config[rowKey][index]['dialClockwise']
+    newDial.name = config[rowKey][index]['name']
+    return newDial
+
+def measureMeter():
+    global config
+
+    if(config['debug']['useFileImg'] == True):
+        img = cv2.imread("test.jpg")
     else:
         stream = io.BytesIO()
         with picamera.PiCamera() as camera:
-            camera.resolution = (832, 512)
-            #camera.rotation = 90
+            camera.resolution = (config['capture']['width'], config['capture']['height'])
+            camera.rotation = config['capture']['rotation']
             #camera.start_preview()
             #time.sleep(2)
             with picamera.array.PiRGBArray(camera) as stream:
@@ -66,39 +66,37 @@ def calibrate_gauge(file_name):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     output_img = cv2.cvtColor(gray,cv2.COLOR_GRAY2RGB)
 
-    if(LOCAL_DEBUG == True):
-        cv2.imshow('detected circles',output_img)
+    if(config['debug']['localImg'] == True):
+        cv2.imshow('Raw Image',output_img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    #print "reading file "
     height, width = img.shape[:2]
-    circleMin = height / 12
-    circleMax = height / 2
-    circleMaxDist = height / 5
-    if (CONSOLE_DEBUG == True):
+    circleMin = height / config['circleFindParams']['circleMinAsFractionOfTotalHeight']
+    circleMax = height / config['circleFindParams']['circleMaxAsFractionOfTotalHeight']
+    circleMaxDist = height / config['circleFindParams']['circleMaxDistAsFractionOfTotalHeight']
+    if (config['debug']['detailedConsole']):
         print ("Image h=%s w=%s  --  circle detect min=%s max=%s maxDist= %s" %(height, width, circleMin, circleMax, circleMaxDist))
 
     circles = cv2.HoughCircles(gray,cv2.HOUGH_GRADIENT,1,int(circleMaxDist),param1=100,param2=70,minRadius=int(circleMin),maxRadius=int(circleMax))
     circles = np.uint16(np.around(circles))
 
-
     circleYMax = 0;
     circleYMin = 100000;
-    
+
     for i in circles[0,:]:
         if(i[1] > circleYMax):
             circleYMax = i[1]
         if(i[1] < circleYMin):
             circleYMin = i[1]
 
-    circleYMidPoint = (circleYMin + circleYMax) /2
+    circleYMidPoint = (circleYMin + circleYMax) / 2
 
     topDials = [];
     bottomDials = [];
-    
+
     for i in circles[0,:]:
-        newDial = DialParams(i[0],i[1],i[2]);
+        newDial = DialParams(i[0], i[1], i[2]);
         if newDial.y < circleYMidPoint:
             newDial.yShift = 3
             topDials.append(newDial)
@@ -108,52 +106,19 @@ def calibrate_gauge(file_name):
 
     bottomDials.sort(key=sortByX)
     topDials.sort(key=sortByX)
-    
-    if (CONSOLE_DEBUG == True):
+
+    if (config['debug']['detailedConsole']):
         print("found %s top circles and %s bottom circles" %(len(topDials), len(bottomDials)))
     AllDials=[];
 
-    millionDial = bottomDials[0]
-    millionDial.unitsPerRev = 1000000
-    millionDial.xShift = 0
-    millionDial.dialClockwise = False
-    millionDial.name = "Million"
-    AllDials.append(millionDial)
+    AllDials.append( configure_dial(bottomDials, 'bottomDials', 0) )
+    AllDials.append( configure_dial(bottomDials, 'bottomDials', 1) )
+    AllDials.append( configure_dial(bottomDials, 'bottomDials', 2) )
+    AllDials.append( configure_dial(bottomDials, 'bottomDials', 3) )
 
-    hundredThouDial = bottomDials[1]
-    hundredThouDial.unitsPerRev = 100000
-    hundredThouDial.xShift = 0
-    hundredThouDial.dialClockwise = True
-    hundredThouDial.name = "HundredThou"
-    AllDials.append(hundredThouDial)
+    AllDials.append( configure_dial(topDials, 'topDials', 0) )
+    AllDials.append( configure_dial(topDials, 'topDials', 1) )
 
-    tenThouDial = bottomDials[2]
-    tenThouDial.unitsPerRev = 10000
-    tenThouDial.xShift = 4
-    tenThouDial.dialClockwise = False
-    tenThouDial.name = "TenThou"
-    AllDials.append(tenThouDial)
-
-    thouDial = bottomDials[3]
-    thouDial.unitsPerRev = 1000
-    thouDial.xShift = 7
-    thouDial.dialClockwise = True
-    thouDial.name = "Thou"
-    AllDials.append(thouDial)
-
-    halfDial = topDials[0]
-    halfDial.unitsPerRev = 10
-    halfDial.xShift = 0
-    halfDial.dialClockwise = False
-    halfDial.name = "Half"
-    AllDials.append(halfDial)
-
-    twoDial = topDials[1]
-    twoDial.unitsPerRev = 40
-    twoDial.xShift = 0
-    twoDial.dialClockwise = False
-    twoDial.name = "Two"
-    AllDials.append(twoDial)
 
     totalValue = 0
     lines = getAllLines(img)
@@ -166,7 +131,7 @@ def calibrate_gauge(file_name):
             return 'Error'
         totalValue += AllDials[i].value
 
-        if (DEBUG == True):
+        if (mqttDebug == True):
             cv2.line(output_img, AllDials[i].line[0], AllDials[i].line[1], (0, 255, 0), 2)
             cv2.circle(output_img,(AllDials[i].x ,AllDials[i].y),AllDials[i].r,(0,255,0),2)
             cv2.circle(output_img,(AllDials[i].x + AllDials[i].xShift ,AllDials[i].y + AllDials[i].yShift),2,(0,0,255),3)
@@ -175,15 +140,15 @@ def calibrate_gauge(file_name):
 
     client.publish("ngmeter/cubicfeet", totalValue, qos=0, retain=False)
 
-    if (DEBUG == True):
+    if (mqttDebug == True):
         cv2.putText(output_img, '%s cubic feet' %(totalValue), (int(width *.55) , int(height * .25)), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2,cv2.LINE_AA)
         dateString = time.strftime("%m/%d/%Y %l:%M:%S %p")
         cv2.putText(output_img, '%s' %(dateString), (int(width *.55) , int(height * .1)), cv2.FONT_HERSHEY_SIMPLEX, .5,(0,0,255),1,cv2.LINE_AA)
         debug_img = cv2.imencode('.jpg', output_img)[1].tostring()
         client.publish("ngmeter/debug_img", debug_img, qos=2)
 
-    if(LOCAL_DEBUG == True):
-        cv2.imshow('detected circles',output_img)
+    if(config['debug']['localImg'] == True):
+        cv2.imshow('Final Debug',output_img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
@@ -192,17 +157,17 @@ def calibrate_gauge(file_name):
 def getValueForDial(dial):
     if(dial.angle is None):
         return dial
-    steps = dial.angle /36
+    steps = dial.angle / 36
     dial.steps = int(steps)
-    dial.value = int(steps) * dial.unitsPerRev /10
+    dial.value = int(steps) * dial.unitsPerRev / 10
     return dial
 
 def getAngleForDial(dial):
-    global CONSOLE_DEBUG
-    
+    global config
+
     if(dial.line is None):
         return dial
-    
+
     final_angle =  0
     x_angle = dial.line[1][0] - dial.line[0][0]
     y_angle = dial.line[1][1] - dial.line[0][1]
@@ -226,25 +191,25 @@ def getAngleForDial(dial):
 
 
 def getAllLines(img):
-    global CONSOLE_DEBUG
-    
+    global config
+
     gray2 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    thresh = 70
-    maxValue = 255
-    th, dst2 = cv2.threshold(gray2, thresh, maxValue, cv2.THRESH_BINARY_INV);
+    blackWhiteThreshold = config['lineFindParams']['blackWhiteThreshold']
+    maxImgValue = config['lineFindParams']['maxImgValue']
+    th, dst2 = cv2.threshold(gray2, blackWhiteThreshold, maxImgValue, cv2.THRESH_BINARY_INV);
 
-    #print "%s" %(dial.unitsPerRev)
-    minLineLength = 6
-    maxLineGap = 0
-    lines = cv2.HoughLinesP(image=dst2, rho=3, theta=np.pi / 180, threshold=100,minLineLength=minLineLength, maxLineGap=0)  # rho is set to 3 to detect more lines, easier to get more then filter them out later
+    houghTheshold = config['lineFindParams']['houghTheshold']
+    minLineLength = config['lineFindParams']['minLineLength']
+    maxLineGap = config['lineFindParams']['maxLineGap']
+    lines = cv2.HoughLinesP(image=dst2, rho=3, theta=np.pi / 180, threshold=houghTheshold, minLineLength=minLineLength, maxLineGap=maxLineGap)  # rho is set to 3 to detect more lines, easier to get more then filter them out later
 
-    if(CONSOLE_DEBUG == True):
+    if(config['debug']['detailedConsole'] == True):
         print ("Found %s lines" %(len(lines)))
     return lines
 
 
 def getLineForDial(lines, dial):
-    global CONSOLE_DEBUG
+    global config
 
     x = dial.x
     y = dial.y
@@ -253,10 +218,10 @@ def getLineForDial(lines, dial):
 
     final_line_list = []
 
-    diff1LowerBound = 0.0 #diff1LowerBound and diff1UpperBound determine how close the line should be from the center
-    diff1UpperBound = 0.59
-    diff2LowerBound = 0.6 #diff2LowerBound and diff2UpperBound determine how close the other point of the line should be to the outside of the gauge
-    diff2UpperBound = 1.3
+    diff1LowerBound = config['lineForDialParams']['diff1LowerBound'] #diff1LowerBound and diff1UpperBound determine how close the line should be from the center
+    diff1UpperBound = config['lineForDialParams']['diff1UpperBound']
+    diff2LowerBound = config['lineForDialParams']['diff2LowerBound'] #diff2LowerBound and diff2UpperBound determine how close the other point of the line should be to the outside of the gauge
+    diff2UpperBound = config['lineForDialParams']['diff2UpperBound']
 
     maxFoundDist = 0;
     finalX = 0;
@@ -295,20 +260,20 @@ def getLineForDial(lines, dial):
         return dial
 
 def main():
-    global DEBUG
+    global mqttDebug
     global timeSinceLastDebugRequest
-    
+
     adjustedTimeSince = timeSinceLastDebugRequest + 10
     if(adjustedTimeSince > time.time()):
-        DEBUG = True
+        mqttDebug = True
         print("Running in debug image mode...")
     else:
-        DEBUG = False
+        mqttDebug = False
 
     start = time.time()
 
     # name the calibration image of your gauge 'gauge-#.jpg', for example 'gauge-5.jpg'.  It's written this way so you can easily try multiple images
-    units = calibrate_gauge("test.jpg")
+    units = measureMeter()
     #feed an image (or frame) to get the current value, based on the calibration, by default uses same image as calibration
     end = time.time()
     print ("Current reading: %s  (took %.2f seconds)" %(units, (end - start)))

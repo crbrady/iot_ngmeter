@@ -1,0 +1,63 @@
+debug:
+    localImg: False
+    detailedConsole: True
+    useFileImg: True
+
+capture:
+  width: 832
+  height: 512
+  rotation: 0
+
+circleFindParams:
+  circleMinAsFractionOfTotalHeight: 12
+  circleMaxAsFractionOfTotalHeight: 2
+  circleMaxDistAsFractionOfTotalHeight: 5
+
+lineFindParams:
+  blackWhiteThreshold: 70
+  maxImgValue: 255
+  houghTheshold: 100
+  minLineLength: 6
+  maxLineGap: 0
+
+lineForDialParams:
+  diff1LowerBound: 0.0
+  diff1UpperBound: 0.59
+  diff2LowerBound: 0.6
+  diff2UpperBound: 1.3
+
+
+
+bottomDials:
+    0:
+        name: "Million"
+        xShift: 0
+        dialClockwise: False
+        unitsPerRev: 1000000
+    1:
+        name: "HundredThou"
+        xShift: 0
+        dialClockwise: True
+        unitsPerRev: 100000
+    2:
+        name: "TenThou"
+        xShift: 4
+        dialClockwise: False
+        unitsPerRev: 10000
+    3:
+        name: "Thou"
+        xShift: 7
+        dialClockwise: True
+        unitsPerRev: 1000
+
+topDials:
+    0:
+        name: "Half"
+        xShift: 0
+        dialClockwise: False
+        unitsPerRev: 10
+    1:
+        name: "Two"
+        xShift: 0
+        dialClockwise: False
+        unitsPerRev: 40
