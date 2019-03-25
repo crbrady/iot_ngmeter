@@ -45,7 +45,7 @@ def calibrate_gauge(file_name):
     for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
         img = frame.array
         rawCapture.truncate(0)
-        break
+        
 
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
