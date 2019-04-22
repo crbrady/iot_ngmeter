@@ -51,7 +51,7 @@ def measureMeter():
     global config
 
     if(config['debug']['useFileImg'] == True):
-        img = cv2.imread("test.jpg")
+        img = cv2.imread(config['debug']['fileImgName'])
     else:
         stream = io.BytesIO()
         with picamera.PiCamera() as camera:
@@ -271,10 +271,13 @@ def main():
         mqttDebug = False
 
     start = time.time()
+    # name the calibration image of your gauge 'gauge-#.jpg', for example
+    # 'gauge-5.jpg'.  It's written this way so you can easily try multiple images
 
-    # name the calibration image of your gauge 'gauge-#.jpg', for example 'gauge-5.jpg'.  It's written this way so you can easily try multiple images
     units = measureMeter()
-    #feed an image (or frame) to get the current value, based on the calibration, by default uses same image as calibration
+    # feed an image (or frame) to get the current value, based on the
+    # calibration, by default uses same image as calibration
+
     end = time.time()
     print ("Current reading: %s  (took %.2f seconds)" %(units, (end - start)))
     time.sleep(2)
@@ -303,10 +306,4 @@ client.on_message = on_message
 client.connect("192.168.0.2", 1883, 60)
 client.loop_start()
 
-
 main()
-
-# Blocking call that processes network traffic, dispatches callbacks and
-# handles reconnecting.
-# Other loop*() functions are available that give a threaded interface and a
-# manual interface.
