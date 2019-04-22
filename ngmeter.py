@@ -63,8 +63,8 @@ def getImage():
 
     if(config['mode']['passthrough']== True):
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 100]
-        result, encimg = cv2.imencode('.jpg', img, encode_param)
-        client.publish("ngmeter/raw_img", encimg, qos=2)
+        payload_img = cv2.imencode('.jpg', img)[1].tostring()
+        client.publish("ngmeter/raw_img", payload_img, qos=2)
 
 def measureMeter(img):
     global config
