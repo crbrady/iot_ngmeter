@@ -29,6 +29,7 @@ client.on('connect', function () {
     client.subscribe(topics[0]);
     client.subscribe(topics[1]);
     client.subscribe(topics[2],{qos:2});
+    client.subscribe(topics[3],{qos:2});
 });
 
 client.on('message', function (topic, message) {
@@ -47,6 +48,7 @@ client.on('message', function (topic, message) {
     }
 
     if(topic === topics[RAW_IMG]){
+        console.log(message.length);
         topicImg[topics[RAW_IMG]] = message;
         image = message;
     }
@@ -57,18 +59,14 @@ http.createServer(function(req, res){
     let request = url.parse(req.url, true);
     let action = request.pathname;
     console.log("http:" + action);
-    // if (action === '/debug') {
-    //
-    //     res.writeHead(200, {'Content-Type': 'image/jpg' });
-    //     res.end(image, 'binary');
-    // }
 
-    if (action === topics[DEBUG_IMG]) {
+    if (action === "/"+topics[DEBUG_IMG]) {
         res.writeHead(200, {'Content-Type': 'image/jpg' });
         res.end(topicImg[topics[DEBUG_IMG]], 'binary');
     }
 
-    if (action === topics[RAW_IMG]) {
+    if (action === "/"+topics[RAW_IMG]) {
+        console.log("RAW_IMG " + topicImg[topics[RAW_IMG]].length);
         res.writeHead(200, {'Content-Type': 'image/jpg' });
         res.end(topicImg[topics[RAW_IMG]], 'binary');
     }
