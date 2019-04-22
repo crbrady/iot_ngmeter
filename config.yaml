@@ -1,3 +1,7 @@
+mode:
+  passthrough: True
+  processOnly : False
+
 debug:
   localImg: False
   detailedConsole: True

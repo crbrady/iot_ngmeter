@@ -47,9 +47,7 @@ def configure_dial(dials, rowKey, index):
     newDial.name = config[rowKey][index]['name']
     return newDial
 
-def measureMeter():
-    global config
-
+def getImage():
     if(config['debug']['useFileImg'] == True):
         img = cv2.imread(config['debug']['fileImgName'])
     else:
@@ -62,6 +60,17 @@ def measureMeter():
             with picamera.array.PiRGBArray(camera) as stream:
                 camera.capture(stream, format="bgr")
                 img = stream.array
+
+    if(config['mode']['passthrough']== True):
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 100]
+        result, encimg = cv2.imencode('.jpg', img, encode_param)
+        client.publish("ngmeter/raw_img", encimg, qos=2)
+
+def measureMeter(img):
+    global config
+
+    if(config['mode']['passthrough']== True):
+        return
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     output_img = cv2.cvtColor(gray,cv2.COLOR_GRAY2RGB)
@@ -273,8 +282,8 @@ def main():
     start = time.time()
     # name the calibration image of your gauge 'gauge-#.jpg', for example
     # 'gauge-5.jpg'.  It's written this way so you can easily try multiple images
-
-    units = measureMeter()
+    img = getImage()
+    units = measureMeter(img)
     # feed an image (or frame) to get the current value, based on the
     # calibration, by default uses same image as calibration
 
