@@ -333,6 +333,9 @@ def main():
     global config
     global timeSinceLastDebugRequest
 
+    if(config['debug']['detailedConsole'] == True):
+        print("Running Main...")
+
     img = NgMeter.getImage()
     if(config['mode']['captureOnly']== True):
         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 100]
@@ -358,10 +361,8 @@ def on_message(client, userdata, msg):
     print(processingImageNow)
 
     if(processingImageNow == False and config['mode']['processOnly'] == True):
-        print("step 1")
         if(msg.topic == "ngmeter/raw_img"):
             processingImageNow = True
-            print("step 2")
             x = np.frombuffer(bytearray(msg.payload), dtype='uint8')
             decodedImg = cv2.imdecode(x, 1)
             units = NgMeter.measureMeter(decodedImg)

@@ -1,6 +1,9 @@
+debug_jpg/
+
 #
 node_modules
 .idea
+
 
 
 # Byte-compiled / optimized / DLL files
