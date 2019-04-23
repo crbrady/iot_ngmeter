@@ -8,6 +8,12 @@ import time
 import datetime
 import io
 import yaml
+import sys
+import os
+import os.path
+from apscheduler.schedulers.background import BackgroundScheduler
+scheduler = BackgroundScheduler()
+scheduler.start()
 #from apscheduler.scheduler import scheduler
 #sched = Scheduler()
 #sched.start()
@@ -20,6 +26,8 @@ print ("Starting with OpenCV version %s..." %(cv2.__version__ ))
 processingImageNow = False
 timeSinceLastDebugRequest = 0
 dateFormat = '%Y-%m-%d %H:%M:%S'
+imgCount = 0
+
 
 
 if(config['debug']['useFileImg'] == False and config['mode']['processOnly'] == False):
@@ -69,16 +77,18 @@ class NgMeter:
                     camera.capture(stream, format="bgr")
                     img = stream.array
 
-        if(config['mode']['captureOnly']== True):
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 100]
-            payload_img = cv2.imencode('.jpg', img)[1].tostring()
-            client.publish("ngmeter/raw_img", payload_img, qos=2)
+        return img
 
 
     def measureMeter(img):
         global config
         global processingImageNow
-        print("meter 1")
+        global imgCount
+
+        imgCount = imgCount + 1
+
+        startAnalysisTime = time.time()
+        analysIsError = False
 
         if(config['mode']['captureOnly'] == True):
             return
@@ -93,7 +103,6 @@ class NgMeter:
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-        print("meter 2")
         height, width = img.shape[:2]
         circleMin = height / config['circleFindParams']['circleMinAsFractionOfTotalHeight']
         circleMax = height / config['circleFindParams']['circleMaxAsFractionOfTotalHeight']
@@ -102,58 +111,12 @@ class NgMeter:
         if (config['debug']['detailedConsole']):
             print ("Image h=%s w=%s  --  circle detect min=%s max=%s maxDist= %s" %(height, width, circleMin, circleMax, circleMaxDist))
 
-        hp_3x3 = np.array([
-            [-1, -1, -1],
-            [-1,  8, -1],
-            [-1, -1, -1]
-        ])
-
-        hp_5x5 = np.array([
-            [-1, -1, -1, -1, -1],
-            [-1,  1,  2,  1, -1],
-            [-1,  2,  4,  2, -1],
-            [-1,  1,  2,  1, -1],
-            [-1, -1, -1, -1, -1]
-        ])
-
-        blur_5x5 = np.array([
-            [1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1]
-        ])
-
-        #print("meter 2.1")
-        #highpass = cv2.filter2D(gray, -1, blur_5x5)
-        #width = int(grey.shape[1])
-        #height = int(grey.shape[0])
-        #print("meter 2.2 " + width + " " + height)
-        #downsampled_x = int(img.shape[1] /8)
-        #downsampled_y = int(img.shape[0] /8)
-        #print(downsampled_x)
-        #downsampled = cv2.resize(img, (downsampled_x, downsampled_y))
-        #downsampled = cv2.blur(downsampled,(12,12))
-        #downsampled = (255 - downsampled)
-        #downsampled = cv2.resize(downsampled, (int(config['capture']['width']), int(config['capture']['height'])))
-        #downsampled = cv2.addWeighted(img,.5,downsampled,.5,0)
-        #print("meter 2.21")
-        #downsampled = cv2.normalize(downsampled, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F) #, dtype=cv2.CV_32F
-        #print("meter 2.22")
-        #circleInput = cv2.cvtColor(downsampled, cv2.COLOR_BGR2GRAY)
-        #print("meter 2.23")
-        #highpass = gray - blur
-
-        #highpass = filtered + 127*numpy.ones(neg_frame.shape, numpy.uint8)
-
         if(config['debug']['imgWindow']['circleInput'] == True):
             cv2.imshow('circleInput Debug',grey )
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
         circles = cv2.HoughCircles(grey,cv2.HOUGH_GRADIENT,1,int(circleMaxDist),param1=100,param2=70,minRadius=int(circleMin),maxRadius=int(circleMax))
-
-        #circles = np.uint16(np.around(circles))
 
         if (config['debug']['detailedConsole']):
             print ("Circles Found: %s " %(len(circles)))
@@ -169,7 +132,6 @@ class NgMeter:
 
         circleYMax = 0;
         circleYMin = 100000;
-        print("meter 3")
 
         for i in circles[0,:]:
             if(i[1] > circleYMax):
@@ -195,7 +157,6 @@ class NgMeter:
             print("found %s top circles and %s bottom circles" %(len(topDials), len(bottomDials)))
 
         AllDials=[];
-        print("meter 4")
         AllDials.append( NgMeter.configure_dial(bottomDials, 'bottomDials', 0) )
         AllDials.append( NgMeter.configure_dial(bottomDials, 'bottomDials', 1) )
         AllDials.append( NgMeter.configure_dial(bottomDials, 'bottomDials', 2) )
@@ -207,25 +168,24 @@ class NgMeter:
         totalValue = 0
         lines = NgMeter.getAllLines(img)
         for i in range(0, len(AllDials)):
-            print("meter 5")
             AllDials[i] = NgMeter.getLineForDial(lines, AllDials[i]);
             AllDials[i] = NgMeter.getAngleForDial(AllDials[i]);
             AllDials[i] = NgMeter.getValueForDial(AllDials[i]);
             if(AllDials[i].value is None):
                 print('Read Dials Failed on %s' %(AllDials[i].name))
-                return 'Error'
+                analysIsError = True
+                continue
             totalValue += AllDials[i].value
-            print("meter 5.5")
+
             if (config['debug']['mqttDebugImg'] == True or config['debug']['imgWindow']['totalDebug'] == True):
-                print("DEBUG")
-                print((AllDials[i].line[0], AllDials[i].line[1]))
                 cv2.line(output_img, (int(AllDials[i].line[0][0]),int(AllDials[i].line[0][1])), (int(AllDials[i].line[1][0]),int(AllDials[i].line[1][1])), (0, 255, 0), 2)
                 cv2.circle(output_img,(int(AllDials[i].x) ,int(AllDials[i].y)),int(AllDials[i].r),(0,255,0),2)
                 cv2.putText(output_img, '%s degrees' %(AllDials[i].angle), (int(AllDials[i].x) - int(AllDials[i].r *.5) ,int(AllDials[i].y) - int(AllDials[i].r) - 10), cv2.FONT_HERSHEY_SIMPLEX, .4,(0,0,255),1,cv2.LINE_AA)
                 cv2.putText(output_img, '%s cubic feet' %(AllDials[i].value), (int(AllDials[i].x) - int(AllDials[i].r *.5) ,int(AllDials[i].y) - int(AllDials[i].r) - 25), cv2.FONT_HERSHEY_SIMPLEX, .4,(0,0,255),1,cv2.LINE_AA)
-            print("meter 5.6")
-        #client.publish("ngmeter/cubicfeet", totalValue, qos=0, retain=False)
-        print("meter 5.7")
+
+        if(analysIsError == False):
+            client.publish("ngmeter/cubicfeet", totalValue, qos=0, retain=False)
+            print("finished with value %s" %(totalValue) );
 
         if(config['debug']['mqttDebugImg'] == True or config['debug']['imgWindow']['totalDebug'] == True):
             cv2.putText(output_img, '%s cubic feet' %(totalValue), (int(width *.55) , int(height * .25)), cv2.FONT_HERSHEY_SIMPLEX, .75,(0,0,255),2,cv2.LINE_AA)
@@ -233,17 +193,35 @@ class NgMeter:
             cv2.putText(output_img, '%s' %(dateString), (int(width *.55) , int(height * .1)), cv2.FONT_HERSHEY_SIMPLEX, .5,(0,0,255),1,cv2.LINE_AA)
 
         if (config['debug']['mqttDebugImg'] == True):
-            debug_img = cv2.imencode('.jpg', output_img)[1].tostring()
-            client.publish("ngmeter/debug_img", debug_img, qos=2)
+            output_jpg = cv2.imencode('.jpg', output_img)[1].tostring()
+            client.publish("ngmeter/debug_img", output_jpg, qos=2)
 
-        processingImageNow = False
-        print("finished with value %s" %(totalValue) );
+        if (config['debug']['diskDebugImg'] == True):
+            output_jpg = cv2.imencode('.jpg', output_img)[1].tostring()
+
+            my_path = os.path.abspath(os.path.dirname(__file__))
+            print(my_path)
+            debug_jpg_path = my_path+"/debug_jpg";
+            if not os.path.exists(debug_jpg_path):
+                os.makedirs(debug_jpg_path)
+            jpg_path = debug_jpg_path+"/"+("%06d" %(imgCount)) + ".jpg";
+            print(jpg_path)
+            cv2.imwrite(jpg_path, output_img)
+            #while(exists = os.path.isfile(debug_jpg_path+"/"+("%06d" %(imgCount,))))
+
 
         if(config['debug']['imgWindow']['totalDebug']  == True):
             cv2.imshow('Final Debug',output_img)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
-        return totalValue
+
+        endAnalysisTime = time.time()
+        print("Analysis took %.2f seconds" %((endAnalysisTime-startAnalysisTime)))
+        processingImageNow = False
+
+        if(analysIsError == False):
+            print ("Current reading: %s" %(units))
+        return
 
 
     def getValueForDial(dial):
@@ -349,16 +327,19 @@ class NgMeter:
             dial.line = [(x + dial.xShift, y + dial.yShift), (finalX, finalY)];
             return dial
 
+
 def main():
     global mqttDebug
     global config
     global timeSinceLastDebugRequest
 
-    start = time.time()
     img = NgMeter.getImage()
-    units = NgMeter.measureMeter(img)
-    end = time.time()
-    print ("Current reading: %s  (took %.2f seconds)" %(units, (end - start)))
+    if(config['mode']['captureOnly']== True):
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 100]
+        payload_img = cv2.imencode('.jpg', img)[1].tostring()
+        client.publish("ngmeter/raw_img", payload_img, qos=2)
+    else:
+        NgMeter.measureMeter(img)
 
 
 def on_connect(client, userdata, flags, rc):
@@ -396,9 +377,12 @@ client.on_message = on_message
 
 client.connect("192.168.0.2", 1883, 60)
 #client.loop_start()
-if(config['mode']['captureOnly'] == False):
+def img_cap_test():
+    print("cap!")
+
+if(config['mode']['processOnly'] == False):
     print("Sched Mode")
-    #sched.add_interval_job(main, seconds = 5)
+    scheduler.add_job(main, 'interval' ,seconds = 5)
 
 client.loop_forever()
 

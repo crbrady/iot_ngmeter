@@ -6,12 +6,13 @@ debug:
   imgWindow:
     circleInput: False
     circleFind: False
-    totalDebug: True
+    totalDebug: False
   localImg: False
   detailedConsole: True
   useFileImg: True
   fileImgName: "outsideTest_sm2.jpg"
-  mqttDebugImg: False
+  mqttDebugImg: True
+  diskDebugImg: True
 
 capture:
   width: 832
