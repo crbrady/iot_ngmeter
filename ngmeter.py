@@ -65,8 +65,9 @@ class NgMeter:
 
     def getImage():
         if(config['debug']['useFileImg'] == True):
-            img = cv2.imread(config['debug']['fileImgName'])
+            return cv2.imread(config['debug']['fileImgName'])
         else:
+            print("Capturing image with picam at %s x %s"  %(config['capture']['width'], config['capture']['height'])
             stream = io.BytesIO()
             with picamera.PiCamera() as camera:
                 camera.resolution = (config['capture']['width'], config['capture']['height'])
@@ -75,9 +76,7 @@ class NgMeter:
                 #time.sleep(2)
                 with picamera.array.PiRGBArray(camera) as stream:
                     camera.capture(stream, format="bgr")
-                    img = stream.array
-            print("Captured Image with picam at %s x %s"  %(config['capture']['width'], config['capture']['height'])
-        return img
+                    return stream.array
 
 
     def measureMeter(img):
