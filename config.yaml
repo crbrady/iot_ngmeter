@@ -1,17 +1,23 @@
 mode:
-  passthrough: True
-  processOnly : False
+  captureOnly: False
+  processOnly : True
 
 debug:
+  imgWindow:
+    circleInput: False
+    circleFind: False
+    totalDebug: True
   localImg: False
   detailedConsole: True
-  useFileImg: False
+  useFileImg: True
   fileImgName: "outsideTest_sm2.jpg"
+  mqttDebugImg: False
 
 capture:
   width: 832
   height: 512
   rotation: 0
+
 
 circleFindParams:
   circleMinAsFractionOfTotalHeight: 12
@@ -46,13 +52,13 @@ bottomDials:
     unitsPerRev: 100000
   2:
     name: "TenThou"
-    xShift:
+    xShift: 0
     yShift: 0
     dialClockwise: False
     unitsPerRev: 10000
   3:
     name: "Thou"
-    xShift: 7
+    xShift: 0
     yShift: 0
     dialClockwise: True
     unitsPerRev: 1000

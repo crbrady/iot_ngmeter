@@ -70,4 +70,4 @@ http.createServer(function(req, res){
         res.writeHead(200, {'Content-Type': 'image/jpg' });
         res.end(topicImg[topics[RAW_IMG]], 'binary');
     }
-}).listen(9013, '127.0.0.1');
+}).listen(9013, "0.0.0.0");
