@@ -76,7 +76,7 @@ class NgMeter:
                 with picamera.array.PiRGBArray(camera) as stream:
                     camera.capture(stream, format="bgr")
                     img = stream.array
-
+            print("Captured Image with picam at" + config['capture'])
         return img
 
 
@@ -377,12 +377,14 @@ client.on_message = on_message
 
 client.connect("192.168.0.2", 1883, 60)
 #client.loop_start()
-def img_cap_test():
-    print("cap!")
 
 if(config['mode']['processOnly'] == False):
-    print("Sched Mode")
+    print("Starting in schedual mode")
     scheduler.add_job(main, 'interval' ,seconds = 5)
+if(config['mode']['captureOnly'] == True):
+    print("Starting in capture only mode")
+if(config['mode']['processOnly'] == True):
+    print("Starting in process only mode")
 
 client.loop_forever()
 

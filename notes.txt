@@ -18,6 +18,7 @@ pip install paho-mqtt
 
 pip3 install paho-mqtt
 pip3 install opencv-python
+pip3 install apscheduler
 sudo apt-get install libcblas-dev libhdf5-dev libhdf5-serial-dev libatlas-base-dev libjasper-dev libqtgui4 libqt4-test
 
 git clone https://github.com/crbrady/iot_ngmeter.git
