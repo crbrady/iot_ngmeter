@@ -9,7 +9,7 @@ debug:
     totalDebug: False
   localImg: False
   detailedConsole: True
-  useFileImg: True
+  useFileImg: False
   fileImgName: "outsideTest_sm2.jpg"
   mqttDebugImg: True
   diskDebugImg: True

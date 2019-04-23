@@ -76,7 +76,7 @@ class NgMeter:
                 with picamera.array.PiRGBArray(camera) as stream:
                     camera.capture(stream, format="bgr")
                     img = stream.array
-            print("Captured Image with picam at" + config['capture'])
+            print("Captured Image with picam at %s x %s"  %(config['capture']['width'], config['capture']['height'])
         return img
 
 
