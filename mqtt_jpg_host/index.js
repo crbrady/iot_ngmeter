@@ -54,11 +54,35 @@ client.on('message', function (topic, message) {
     }
 });
 
+let html = "<html>\n" +
+    "<script>\n" +
+    "window.onload = function() {\n" +
+    "    var image = document.getElementById(\"img\");\n" +
+    "\n" +
+    "    function updateImage() {\n" +
+    "        image.src = image.src.split(\"?\")[0] + \"?\" + new Date().getTime();\n" +
+    "    }\n" +
+    "\n" +
+    "    setInterval(updateImage, 5000);\n" +
+    "}\n" +
+    "</script>\n" +
+    "\n" +
+    //"<body onload=\"updateImage();\">\n" +
+    "<img id=\"img\" src=\"http://192.168.0.2:9013/ngmeter/debug_img\" style=\"position:absolute;top:0;left:0\"/>\n" +
+    "</body>\n" +
+    "</html>";
+
+
 
 http.createServer(function(req, res){
     let request = url.parse(req.url, true);
     let action = request.pathname;
     console.log("http:" + action);
+
+    if (action === "/html/"+topics[DEBUG_IMG]) {
+        res.writeHead(200, {'Content-Type': 'text/html' });
+        res.end(html);
+    }
 
     if (action === "/"+topics[DEBUG_IMG]) {
         res.writeHead(200, {'Content-Type': 'image/jpg' });

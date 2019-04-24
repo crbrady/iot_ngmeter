@@ -28,8 +28,6 @@ timeSinceLastDebugRequest = 0
 dateFormat = '%Y-%m-%d %H:%M:%S'
 imgCount = 0
 
-
-
 if(config['debug']['useFileImg'] == False and config['mode']['processOnly'] == False):
     import picamera
     import picamera.array
@@ -67,7 +65,7 @@ class NgMeter:
         if(config['debug']['useFileImg'] == True):
             return cv2.imread(config['debug']['fileImgName'])
         else:
-            print("Capturing image with picam at %s x %s"  %(config['capture']['width'], config['capture']['height'])
+            print("Capturing image with picam at %s x %s"  %(config['capture']['width'], config['capture']['height']))
             stream = io.BytesIO()
             with picamera.PiCamera() as camera:
                 camera.resolution = (config['capture']['width'], config['capture']['height'])
@@ -96,6 +94,10 @@ class NgMeter:
 
         grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         output_img = cv2.cvtColor(grey,cv2.COLOR_GRAY2RGB)
+
+        #cv2.imshow('Raw Image',output_img)
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()
 
         if(config['debug']['localImg'] == True):
             cv2.imshow('Raw Image',output_img)
@@ -376,7 +378,6 @@ client.on_connect = on_connect
 client.on_message = on_message
 
 client.connect("192.168.0.2", 1883, 60)
-#client.loop_start()
 
 if(config['mode']['processOnly'] == False):
     print("Starting in schedual mode")

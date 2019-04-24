@@ -12,7 +12,7 @@ debug:
   useFileImg: False
   fileImgName: "outsideTest_sm2.jpg"
   mqttDebugImg: True
-  diskDebugImg: True
+  diskDebugImg: False
 
 capture:
   width: 832
